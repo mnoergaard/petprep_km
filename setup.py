@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(
     name='petprep_km',
     version='0.1',
-    packages=find_packages(),
+    packages=find_packages(include=['petprep_km', 'petprep_km.*']),
     install_requires=[
         'numpy',
         'scipy',

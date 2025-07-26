@@ -1,6 +1,6 @@
-from interfaces.models import LoganModel
-from interfaces.io import load_tacs, load_blood, load_morphology
-from utils.misc import save_kinpar_tsv, save_kinpar_json, generate_html_report
+from petprep_km.interfaces.models import LoganModel
+from petprep_km.interfaces.io import load_tacs, load_blood, load_morphology
+from petprep_km.utils.misc import save_kinpar_tsv, save_kinpar_json, generate_html_report
 import os
 
 # Load data

@@ -1,6 +1,6 @@
-from interfaces.models import OneTCMModel
-from interfaces.io import load_tacs, load_blood
-from utils.misc import save_kinpar_tsv, save_kinpar_json, generate_html_report
+from petprep_km.interfaces.models import OneTCMModel
+from petprep_km.interfaces.io import load_tacs, load_blood
+from petprep_km.utils.misc import save_kinpar_tsv, save_kinpar_json, generate_html_report
 import os
 
 # Load data

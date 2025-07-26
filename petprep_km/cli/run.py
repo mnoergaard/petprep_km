@@ -1,6 +1,13 @@
 import argparse
 import os
-from petprep_km.interfaces.models import LoganModel, MA1Model, OneTCMModel, TwoTCMModel
+from petprep_km.interfaces.models import (
+    LoganModel,
+    MA1Model,
+    OneTCMModel,
+    TwoTCMModel,
+    SRTMModel,
+    SRTM2Model,
+)
 from petprep_km.interfaces.io import load_tacs, load_blood
 from petprep_km.utils.misc import save_kinpar_tsv, save_kinpar_json, generate_html_report
 
@@ -8,7 +15,9 @@ MODEL_CLASSES = {
     "logan": LoganModel,
     "ma1": MA1Model,
     "1tcm": OneTCMModel,
-    "2tcm": TwoTCMModel
+    "2tcm": TwoTCMModel,
+    "srtm": SRTMModel,
+    "srtm2": SRTM2Model,
 }
 
 def main():

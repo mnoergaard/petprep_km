@@ -66,6 +66,22 @@ class BaseBloodModel(ABC):
         pass
 
 
+class BaseReferenceModel(ABC):
+    def __init__(self, tac_times, tac_values, ref_times, ref_values):
+        self.tac_times = tac_times / 60.0
+        self.tac_values = tac_values
+        self.ref_times = ref_times / 60.0
+        self.ref_values = ref_values
+
+    @abstractmethod
+    def fit(self):
+        pass
+
+    @abstractmethod
+    def visualize_fit(self, output_path, region_name):
+        pass
+
+
 class MA1Model(BaseBloodModel):
     parameters = ["VT", "intercept", "coef_X2", "MSE", "SigmaSqr", "LogLike", "AIC", "FPE"]
 
@@ -453,3 +469,144 @@ class OneTCMModel(BaseBloodModel):
             Ct[i] = (1 - vB) * C1 + vB * cb_func(t[i])
 
         return Ct
+
+
+class SRTMModel(BaseReferenceModel):
+    parameters = ["R1", "k2", "BP", "CoV"]
+
+    def __init__(self, tac_times, tac_values, ref_times, ref_values,
+                 bounds_lower=None, bounds_upper=None, n_iterations=50):
+        super().__init__(tac_times, tac_values, ref_times, ref_values)
+        self.bounds_lower = bounds_lower or [0.1, 0.01, 0.0]
+        self.bounds_upper = bounds_upper or [2.0, 1.0, 5.0]
+        self.n_iterations = n_iterations
+
+    def fit(self):
+        t = self.tac_times
+        ref = np.interp(t, self.ref_times, self.ref_values)
+
+        def residuals(params):
+            R1, k2, BP = params
+            ct = self._simulate_srtm(t, ref, R1, k2, BP)
+            return ct - self.tac_values
+
+        best = None
+        min_cost = np.inf
+        for _ in range(self.n_iterations):
+            x0 = np.random.uniform(self.bounds_lower, self.bounds_upper)
+            res = least_squares(residuals, x0,
+                                bounds=(self.bounds_lower, self.bounds_upper))
+            if res.cost < min_cost:
+                min_cost = res.cost
+                best = res.x
+
+        R1, k2, BP = best
+        res_vals = residuals(best)
+        mean_tac = np.mean(self.tac_values)
+        cov = np.std(res_vals, ddof=len(best)) / mean_tac if mean_tac != 0 else np.nan
+
+        self.fit_result = {"R1": R1, "k2": k2, "BP": BP, "CoV": cov}
+        return self.fit_result
+
+    def _simulate_srtm(self, t, ref, R1, k2, BP):
+        k2a = k2 / (1.0 + BP)
+        dt = np.diff(t, prepend=0)
+        conv = np.zeros_like(t)
+        ct = np.zeros_like(t)
+        ct[0] = R1 * ref[0]
+        for i in range(1, len(t)):
+            conv[i] = conv[i-1] * np.exp(-k2a * dt[i]) + 0.5 * (ref[i] + ref[i-1]) * dt[i]
+            ct[i] = R1 * ref[i] + (k2 - R1 * k2a) * conv[i]
+        return ct
+
+    def visualize_fit(self, output_path, region_name):
+        t = self.tac_times
+        ref = np.interp(t, self.ref_times, self.ref_values)
+        fit_curve = self._simulate_srtm(t, ref, self.fit_result["R1"],
+                                        self.fit_result["k2"],
+                                        self.fit_result["BP"])
+        plt.figure(figsize=(8, 4))
+        plt.plot(t, self.tac_values, 'ko', label='Measured TAC')
+        plt.plot(t, fit_curve, 'r--', label='SRTM Fit')
+        plt.title(region_name)
+        plt.xlabel("Time (min)")
+        plt.ylabel("Radioactivity Concentration")
+        plt.annotate(
+            f"R1 = {self.fit_result['R1']:.2f}\nk2 = {self.fit_result['k2']:.3f}\nBP = {self.fit_result['BP']:.2f}\nCoV = {self.fit_result['CoV']:.4f}",
+            xy=(0.55, 0.5), xycoords='axes fraction'
+        )
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(output_path)
+        plt.close()
+
+
+class SRTM2Model(BaseReferenceModel):
+    parameters = ["R1", "k2", "BP", "CoV"]
+
+    def __init__(self, tac_times, tac_values, ref_times, ref_values, k2_ref,
+                 bounds_lower=None, bounds_upper=None, n_iterations=50):
+        super().__init__(tac_times, tac_values, ref_times, ref_values)
+        self.k2_ref = k2_ref
+        self.bounds_lower = bounds_lower or [0.1, 0.0]
+        self.bounds_upper = bounds_upper or [2.0, 5.0]
+        self.n_iterations = n_iterations
+
+    def fit(self):
+        t = self.tac_times
+        ref = np.interp(t, self.ref_times, self.ref_values)
+
+        def residuals(params):
+            R1, BP = params
+            ct = self._simulate_srtm(t, ref, R1, self.k2_ref, BP)
+            return ct - self.tac_values
+
+        best = None
+        min_cost = np.inf
+        for _ in range(self.n_iterations):
+            x0 = np.random.uniform(self.bounds_lower, self.bounds_upper)
+            res = least_squares(residuals, x0,
+                                bounds=(self.bounds_lower, self.bounds_upper))
+            if res.cost < min_cost:
+                min_cost = res.cost
+                best = res.x
+
+        R1, BP = best
+        res_vals = residuals(best)
+        mean_tac = np.mean(self.tac_values)
+        cov = np.std(res_vals, ddof=len(best)) / mean_tac if mean_tac != 0 else np.nan
+
+        self.fit_result = {"R1": R1, "k2": self.k2_ref, "BP": BP, "CoV": cov}
+        return self.fit_result
+
+    def _simulate_srtm(self, t, ref, R1, k2, BP):
+        k2a = k2 / (1.0 + BP)
+        dt = np.diff(t, prepend=0)
+        conv = np.zeros_like(t)
+        ct = np.zeros_like(t)
+        ct[0] = R1 * ref[0]
+        for i in range(1, len(t)):
+            conv[i] = conv[i-1] * np.exp(-k2a * dt[i]) + 0.5 * (ref[i] + ref[i-1]) * dt[i]
+            ct[i] = R1 * ref[i] + (k2 - R1 * k2a) * conv[i]
+        return ct
+
+    def visualize_fit(self, output_path, region_name):
+        t = self.tac_times
+        ref = np.interp(t, self.ref_times, self.ref_values)
+        fit_curve = self._simulate_srtm(t, ref, self.fit_result["R1"],
+                                        self.k2_ref,
+                                        self.fit_result["BP"])
+        plt.figure(figsize=(8, 4))
+        plt.plot(t, self.tac_values, 'ko', label='Measured TAC')
+        plt.plot(t, fit_curve, 'r--', label='SRTM2 Fit')
+        plt.title(region_name)
+        plt.xlabel("Time (min)")
+        plt.ylabel("Radioactivity Concentration")
+        plt.annotate(
+            f"R1 = {self.fit_result['R1']:.2f}\nk2' = {self.k2_ref:.3f}\nBP = {self.fit_result['BP']:.2f}\nCoV = {self.fit_result['CoV']:.4f}",
+            xy=(0.55, 0.5), xycoords='axes fraction'
+        )
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(output_path)
+        plt.close()

@@ -88,6 +88,7 @@ def main():
             model_kwargs["blood_values"] = blood_values
             model_kwargs["vB_fixed"] = args.vb_fixed
             model_kwargs["fit_end_time"] = args.fit_end_time
+            model_kwargs["n_iterations"] = args.n_iterations
 
         if args.model in ["logan", "ma1"]:
             model_kwargs["t_star"] = args.tstar

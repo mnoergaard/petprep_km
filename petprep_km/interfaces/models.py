@@ -243,12 +243,14 @@ class TwoTCMModel(BaseBloodModel):
     parameters = ["K1", "k2", "k3", "k4", "vB", "VT", "CoV"]
 
     def __init__(self, tac_times, tac_values, plasma_times, plasma_values, blood_values=None,
-                 bounds_lower=None, bounds_upper=None, vB_fixed=None, inpshift=0.0, fit_end_time=None):
+                 bounds_lower=None, bounds_upper=None, vB_fixed=None, inpshift=0.0, fit_end_time=None,
+                 n_iterations=50):
 
         super().__init__(tac_times, tac_values, plasma_times, plasma_values, blood_values)
         self.vB_fixed = vB_fixed
         self.inpshift = inpshift
         self.fit_end_time = fit_end_time or self.tac_times[-1]
+        self.n_iterations = n_iterations
 
         if self.vB_fixed is not None:
             self.bounds_lower = bounds_lower or [0.0001, 0.0001, 0.0001, 0.0001]
@@ -269,7 +271,7 @@ class TwoTCMModel(BaseBloodModel):
         best_fit = None
         min_cost = np.inf
 
-        for _ in range(50):
+        for _ in range(self.n_iterations):
             x0 = np.random.uniform(self.bounds_lower, self.bounds_upper)
             res = least_squares(self._residuals, x0, bounds=(self.bounds_lower, self.bounds_upper),
                                 args=(t_pet, Cp, Cb, tac_pet))
@@ -356,12 +358,14 @@ class OneTCMModel(BaseBloodModel):
     parameters = ["K1", "k2", "vB", "VT", "CoV"]
 
     def __init__(self, tac_times, tac_values, plasma_times, plasma_values, blood_values=None,
-                 bounds_lower=None, bounds_upper=None, vB_fixed=None, fit_end_time=None):
+                 bounds_lower=None, bounds_upper=None, vB_fixed=None, fit_end_time=None,
+                 n_iterations=50):
         super().__init__(tac_times, tac_values, plasma_times, plasma_values, blood_values)
         self.bounds_lower = bounds_lower or [0.0001, 0.0001, 0.01]
         self.bounds_upper = bounds_upper or [1.0, 0.5, 0.1]
         self.vB_fixed = vB_fixed
         self.fit_end_time = fit_end_time or self.tac_times[-1]
+        self.n_iterations = n_iterations
 
     def fit(self):
         mask = self.tac_times <= self.fit_end_time
@@ -391,7 +395,7 @@ class OneTCMModel(BaseBloodModel):
             bounds_lower = self.bounds_lower
             bounds_upper = self.bounds_upper
 
-        for _ in range(50):
+        for _ in range(self.n_iterations):
             x0 = np.random.uniform(bounds_lower, bounds_upper)
             res = least_squares(residuals, x0, bounds=(bounds_lower, bounds_upper))
             if res.cost < min_cost:

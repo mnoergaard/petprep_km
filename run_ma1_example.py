@@ -1,14 +1,17 @@
 from petprep_km.interfaces.models import MA1Model
-from petprep_km.interfaces.io import load_tacs, load_blood, load_morphology
+from petprep_km.interfaces.io import load_tacs, load_blood
 from petprep_km.utils.misc import save_kinpar_tsv, save_kinpar_json, plot_fit, generate_html_report
 import os
 import numpy as np
 from scipy.integrate import cumtrapz
 
 # Load data
-tac_times, roi_names, tac_values = load_tacs('data/sub-pf11_ses-pf974_desc-gtmseg_tacs.tsv')
-plasma_times, plasma_values, blood_values = load_blood('data/sub-pf11_ses-pf974_inputfunction.tsv')
-morphology = load_morphology('data/sub-pf11_ses-pf974_desc-gtmseg_morph.tsv')
+tac_times, roi_names, tac_values = load_tacs(
+    'data/derivatives/petprep/sub-01/pet/sub-01_desc-preproc_seg-gtm_timeseries.tsv'
+)
+plasma_times, plasma_values, blood_values = load_blood(
+    'data/derivatives/bloodstream/sub-01/pet/sub-01_inputfunction.tsv'
+)
 
 # Parameters
 t_star = 41

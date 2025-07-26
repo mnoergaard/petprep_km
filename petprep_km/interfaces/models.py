@@ -255,6 +255,101 @@ class LoganModel(BaseBloodModel):
         plt.savefig(output_path)
         plt.close()
 
+
+class LoganRefModel(BaseReferenceModel):
+    """Logan reference tissue model with fixed k2' for the reference region."""
+
+    parameters = [
+        "DVR",
+        "intercept",
+        "R_squared",
+        "MSE",
+        "SigmaSqr",
+        "LogLike",
+        "AIC",
+        "FPE",
+        "CoV",
+    ]
+
+    def __init__(self, tac_times, tac_values, ref_times, ref_values, k2_prime, t_star):
+        super().__init__(tac_times, tac_values, ref_times, ref_values)
+        self.k2_prime = k2_prime
+        self.t_star = t_star
+
+    def fit(self):
+        t = self.tac_times
+        ref = np.interp(t, self.ref_times, self.ref_values)
+
+        integral_tac = cumtrapz(self.tac_values, t, initial=0)
+        integral_ref = cumtrapz(ref, t, initial=0)
+
+        mask = t >= self.t_star
+
+        x = (integral_ref[mask] + ref[mask] / self.k2_prime) / self.tac_values[mask]
+        y = integral_tac[mask] / self.tac_values[mask]
+
+        X_design = sm.add_constant(x)
+        glm_model = sm.WLS(y, X_design)
+        glm_results = glm_model.fit()
+
+        intercept, DVR = glm_results.params
+
+        y_pred = glm_results.fittedvalues
+        residuals = y - y_pred
+        n = len(y)
+        p = 2
+
+        mean_y = np.mean(y)
+        cov = np.std(residuals, ddof=p) / mean_y if mean_y != 0 else np.nan
+        mse = np.sum(residuals ** 2) / (n - p)
+        sigma_squared = np.var(residuals, ddof=p)
+        log_likelihood = -0.5 * n * np.log(2 * np.pi * sigma_squared) - 0.5 * np.sum(residuals ** 2) / sigma_squared
+        aic = -2 * log_likelihood + 2 * (p + 1)
+        fpe = np.sum(residuals ** 2) * (n + p) / (n - p)
+        r_squared = glm_results.rsquared
+
+        self.fit_result = {
+            "DVR": DVR,
+            "intercept": intercept,
+            "R_squared": r_squared,
+            "MSE": mse,
+            "SigmaSqr": sigma_squared,
+            "LogLike": log_likelihood,
+            "AIC": aic,
+            "FPE": fpe,
+            "CoV": cov,
+        }
+        return self.fit_result
+
+    def visualize_fit(self, output_path, region_name):
+        t = self.tac_times
+        ref = np.interp(t, self.ref_times, self.ref_values)
+
+        integral_tac = cumtrapz(self.tac_values, t, initial=0)
+        integral_ref = cumtrapz(ref, t, initial=0)
+
+        mask = t >= self.t_star
+        x = (integral_ref[mask] + ref[mask] / self.k2_prime) / self.tac_values[mask]
+        y = integral_tac[mask] / self.tac_values[mask]
+
+        X_design = sm.add_constant(x)
+        y_pred = X_design @ np.array([self.fit_result["intercept"], self.fit_result["DVR"]])
+
+        plt.figure(figsize=(8, 4))
+        plt.plot(x, y, 'ko', label='Data')
+        plt.plot(x, y_pred, 'r--', label='Logan Ref Fit')
+        plt.xlabel("(∫Cr(t) + Cr(t)/k2')/Ct(t) [min]")
+        plt.ylabel("∫Ct(t)/Ct(t) [min]")
+        plt.title(f'Logan Reference Plot - {region_name}')
+        plt.annotate(
+            f"DVR = {self.fit_result['DVR']:.2f}\nk2' = {self.k2_prime:.3f}\nt_star = {self.t_star:.2f} min\nCoV = {self.fit_result['CoV']:.4f}",
+            xy=(0.6, 0.1), xycoords='axes fraction'
+        )
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(output_path)
+        plt.close()
+
 class TwoTCMModel(BaseBloodModel):
     parameters = ["K1", "k2", "k3", "k4", "vB", "VT", "CoV"]
 

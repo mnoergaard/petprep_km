@@ -66,6 +66,22 @@ class BaseBloodModel(ABC):
         pass
 
 
+class BaseReferenceModel(ABC):
+    def __init__(self, tac_times, tac_values, ref_times, ref_values):
+        self.tac_times = tac_times / 60.0
+        self.tac_values = tac_values
+        self.ref_times = ref_times / 60.0
+        self.ref_values = ref_values
+
+    @abstractmethod
+    def fit(self):
+        pass
+
+    @abstractmethod
+    def visualize_fit(self, output_path, region_name):
+        pass
+
+
 class MA1Model(BaseBloodModel):
     parameters = ["VT", "intercept", "coef_X2", "MSE", "SigmaSqr", "LogLike", "AIC", "FPE"]
 
@@ -453,3 +469,143 @@ class OneTCMModel(BaseBloodModel):
             Ct[i] = (1 - vB) * C1 + vB * cb_func(t[i])
 
         return Ct
+
+
+class SRTMModel(BaseReferenceModel):
+    """Simplified Reference Tissue Model"""
+
+    parameters = ["R1", "k2", "BP", "CoV"]
+
+    def __init__(self, tac_times, tac_values, ref_times, ref_values,
+                 bounds_lower=None, bounds_upper=None):
+        super().__init__(tac_times, tac_values, ref_times, ref_values)
+        self.bounds_lower = bounds_lower or [0.1, 0.001, 0.0]
+        self.bounds_upper = bounds_upper or [2.0, 1.0, 10.0]
+
+    def fit(self):
+        t = self.tac_times
+        Ct = self.tac_values
+        ref = interp1d(self.ref_times, self.ref_values, fill_value="extrapolate")
+
+        def residuals(params):
+            R1, k2, BP = params
+            pred = self._simulate_srtm(t, ref, R1, k2, BP)
+            return pred - Ct
+
+        best, cost = None, np.inf
+        for _ in range(20):
+            x0 = np.random.uniform(self.bounds_lower, self.bounds_upper)
+            res = least_squares(residuals, x0, bounds=(self.bounds_lower,
+                                                       self.bounds_upper))
+            if res.cost < cost:
+                best, cost = res.x, res.cost
+
+        R1, k2, BP = best
+        resid = residuals(best)
+        mean_ct = np.mean(Ct)
+        cov = np.std(resid, ddof=len(best)) / mean_ct if mean_ct != 0 else np.nan
+
+        self.fit_result = {"R1": R1, "k2": k2, "BP": BP, "CoV": cov}
+        return self.fit_result
+
+    def _simulate_srtm(self, t, ref_func, R1, k2, BP):
+        k2a = k2 / (1.0 + BP)
+        Ct = np.zeros_like(t)
+        Cr_prev = ref_func(t[0])
+        for i in range(1, len(t)):
+            dt = t[i] - t[i - 1]
+            Cr = ref_func(t[i])
+            dCr = (Cr - Cr_prev) / dt
+            Ct[i] = Ct[i - 1] + dt * (R1 * dCr + k2 * Cr_prev - k2a * Ct[i - 1])
+            Cr_prev = Cr
+        return Ct
+
+    def visualize_fit(self, output_path, region_name):
+        ref = interp1d(self.ref_times, self.ref_values, fill_value="extrapolate")
+        fit_curve = self._simulate_srtm(
+            self.tac_times, ref,
+            self.fit_result["R1"], self.fit_result["k2"], self.fit_result["BP"])
+        plt.figure(figsize=(8, 4))
+        plt.plot(self.tac_times, self.tac_values, "ko", label="Measured TAC")
+        plt.plot(self.tac_times, fit_curve, "r--", label="SRTM Fit")
+        plt.title(region_name)
+        plt.xlabel("Time (min)")
+        plt.ylabel("Radioactivity")
+        plt.annotate(
+            f"BPnd = {self.fit_result['BP']:.2f}\nCoV = {self.fit_result['CoV']:.4f}",
+            xy=(0.65, 0.5), xycoords="axes fraction")
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(output_path)
+        plt.close()
+
+
+class SRTM2Model(BaseReferenceModel):
+    """Simplified Reference Tissue Model 2"""
+
+    parameters = ["R1", "BP", "CoV"]
+
+    def __init__(self, tac_times, tac_values, ref_times, ref_values, k2_ref,
+                 bounds_lower=None, bounds_upper=None):
+        super().__init__(tac_times, tac_values, ref_times, ref_values)
+        self.k2_ref = k2_ref
+        self.bounds_lower = bounds_lower or [0.1, 0.0]
+        self.bounds_upper = bounds_upper or [2.0, 10.0]
+
+    def fit(self):
+        t = self.tac_times
+        Ct = self.tac_values
+        ref = interp1d(self.ref_times, self.ref_values, fill_value="extrapolate")
+
+        def residuals(params):
+            R1, BP = params
+            pred = self._simulate_srtm(t, ref, R1, self.k2_ref, BP)
+            return pred - Ct
+
+        best, cost = None, np.inf
+        for _ in range(20):
+            x0 = np.random.uniform(self.bounds_lower, self.bounds_upper)
+            res = least_squares(residuals, x0, bounds=(self.bounds_lower,
+                                                       self.bounds_upper))
+            if res.cost < cost:
+                best, cost = res.x, res.cost
+
+        R1, BP = best
+        resid = residuals(best)
+        mean_ct = np.mean(Ct)
+        cov = np.std(resid, ddof=len(best)) / mean_ct if mean_ct != 0 else np.nan
+
+        self.fit_result = {"R1": R1, "BP": BP, "CoV": cov}
+        return self.fit_result
+
+    def _simulate_srtm(self, t, ref_func, R1, k2, BP):
+        k2a = k2 / (1.0 + BP)
+        Ct = np.zeros_like(t)
+        Cr_prev = ref_func(t[0])
+        for i in range(1, len(t)):
+            dt = t[i] - t[i - 1]
+            Cr = ref_func(t[i])
+            dCr = (Cr - Cr_prev) / dt
+            Ct[i] = Ct[i - 1] + dt * (R1 * dCr + k2 * Cr_prev - k2a * Ct[i - 1])
+            Cr_prev = Cr
+        return Ct
+
+    def visualize_fit(self, output_path, region_name):
+        ref = interp1d(self.ref_times, self.ref_values, fill_value="extrapolate")
+        fit_curve = self._simulate_srtm(
+            self.tac_times, ref,
+            self.fit_result["R1"], self.k2_ref, self.fit_result["BP"])
+        plt.figure(figsize=(8, 4))
+        plt.plot(self.tac_times, self.tac_values, "ko", label="Measured TAC")
+        plt.plot(self.tac_times, fit_curve, "r--", label="SRTM2 Fit")
+        plt.title(region_name)
+        plt.xlabel("Time (min)")
+        plt.ylabel("Radioactivity")
+        plt.annotate(
+            f"BPnd = {self.fit_result['BP']:.2f}\nCoV = {self.fit_result['CoV']:.4f}",
+            xy=(0.65, 0.5), xycoords="axes fraction")
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(output_path)
+        plt.close()
+

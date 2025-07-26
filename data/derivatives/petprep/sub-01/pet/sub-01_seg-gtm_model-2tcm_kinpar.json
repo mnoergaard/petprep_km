@@ -1,0 +1,18 @@
+{
+    "Description": "2tcm kinetic modeling results",
+    "ModelName": "2tcm",
+    "BloodType": "arterial",
+    "AdditionalModelDetails": "Linear fit from t*=None minutes",
+    "SoftwareName": "petprep_km",
+    "SoftwareVersion": "0.1.0",
+    "CommandLine": "run_ma1_example.py",
+    "Parameters": [
+        "K1",
+        "k2",
+        "k3",
+        "k4",
+        "vB",
+        "VT",
+        "CoV"
+    ]
+}

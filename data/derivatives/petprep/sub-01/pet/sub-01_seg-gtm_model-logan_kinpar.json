@@ -1,0 +1,22 @@
+{
+    "Description": "logan kinetic modeling results",
+    "ModelName": "logan",
+    "BloodType": "arterial",
+    "AdditionalModelDetails": "Linear fit from t*=None minutes",
+    "SoftwareName": "petprep_km",
+    "SoftwareVersion": "0.1.0",
+    "CommandLine": "run_ma1_example.py",
+    "Parameters": [
+        "VT",
+        "Kappa2",
+        "VT_var",
+        "intercept",
+        "R_squared",
+        "MSE",
+        "SigmaSqr",
+        "LogLike",
+        "AIC",
+        "FPE",
+        "CoV"
+    ]
+}

@@ -1,0 +1,19 @@
+{
+    "Description": "ma1 kinetic modeling results",
+    "ModelName": "ma1",
+    "BloodType": "arterial",
+    "AdditionalModelDetails": "Linear fit from t*=None minutes",
+    "SoftwareName": "petprep_km",
+    "SoftwareVersion": "0.1.0",
+    "CommandLine": "run_ma1_example.py",
+    "Parameters": [
+        "VT",
+        "intercept",
+        "coef_X2",
+        "MSE",
+        "SigmaSqr",
+        "LogLike",
+        "AIC",
+        "FPE"
+    ]
+}

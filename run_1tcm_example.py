@@ -4,8 +4,12 @@ from petprep_km.utils.misc import save_kinpar_tsv, save_kinpar_json, generate_ht
 import os
 
 # Load data
-tac_times, roi_names, tac_values = load_tacs('data/sub-01_ses-baseline_desc-WhiteMatter_tacs.tsv')
-plasma_times, plasma_values, blood_values = load_blood('data/sub-01_ses-baseline_inputfunction.tsv')
+tac_times, roi_names, tac_values = load_tacs(
+    'data/derivatives/petprep/sub-01/pet/sub-01_desc-preproc_seg-gtm_timeseries.tsv'
+)
+plasma_times, plasma_values, blood_values = load_blood(
+    'data/derivatives/bloodstream/sub-01/pet/sub-01_inputfunction.tsv'
+)
 
 # Parameters
 subject_id = "01"

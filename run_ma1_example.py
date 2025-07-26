@@ -15,8 +15,8 @@ plasma_times, plasma_values, blood_values = load_blood(
 
 # Parameters
 t_star = 41
-subject_id = "pf11"
-session_id = "pf974"
+subject_id = "01"
+session_id = "baseline"
 model_class = MA1Model
 model_name = model_class.__name__.replace("Model", "")
 

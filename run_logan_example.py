@@ -10,12 +10,11 @@ tac_times, roi_names, tac_values = load_tacs(
 plasma_times, plasma_values, blood_values = load_blood(
     'data/derivatives/bloodstream/sub-01/pet/sub-01_inputfunction.tsv'
 )
-morphology = load_morphology('data/sub-pf11_ses-pf974_desc-gtmseg_morph.tsv')
 
 # Parameters
 t_star = 41
-subject_id = "pf11"
-session_id = "pf974"
+subject_id = "01"
+session_id = "baseline"
 model_class = LoganModel
 model_name = model_class.__name__.replace("Model", "")
 

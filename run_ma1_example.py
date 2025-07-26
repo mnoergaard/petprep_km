@@ -7,7 +7,7 @@ from scipy.integrate import cumtrapz
 
 # Load data
 tac_times, roi_names, tac_values = load_tacs('data/sub-pf11_ses-pf974_desc-gtmseg_tacs.tsv')
-plasma_times, plasma_values, blood_values = load_blood('data/sub-PF11_ses-test_inputfunction.tsv')
+plasma_times, plasma_values, blood_values = load_blood('data/sub-pf11_ses-pf974_inputfunction.tsv')
 morphology = load_morphology('data/sub-pf11_ses-pf974_desc-gtmseg_morph.tsv')
 
 # Parameters

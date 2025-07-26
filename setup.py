@@ -13,7 +13,6 @@ setup(
     entry_points={
         'console_scripts': [
             'petprep_km=petprep_km.cli.run:main',
-            'petprep_km_workflow=petprep_km.cli.run_workflow:main',
         ],
     },
 )
